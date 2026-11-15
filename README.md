@@ -7,12 +7,12 @@ A load tester for Redis-compatible servers, written in Go with **zero dependenci
 I built it to benchmark [ferrodb](https://github.com/jeremiahpetion03/ferrodb), my Rust Redis clone, against real Redis.
 
 ```
-$ ferrobench -addr 127.0.0.1:6379 -clients 50 -pipeline 16 -duration 5s
-ferrobench → 127.0.0.1:6379  clients=50 pipeline=16 duration=5s keys/client=10000 size=64B get-ratio=0.50
+$ ferrobench -addr 127.0.0.1:6391 -clients 50 -pipeline 16 -duration 5s -seed 7
+ferrobench → 127.0.0.1:6391  clients=50 pipeline=16 duration=5s keys/client=10000 size=64B get-ratio=0.50
 
-  throughput   919,544 ops/sec  (4,598,336 ops in 5.00s)
-  mix          2,299,104 GET (1,803,122 hits)  /  2,299,232 SET
-  round trip   p50 31µs   p99 8.98ms   p99.9 13.77ms   max 28.23ms
+  throughput   253,728 ops/sec  (1,271,520 ops in 5.01s)
+  mix          636,593 GET (276,130 hits)  /  634,927 SET
+  round trip   p50 1.11ms   p99 30.52ms   p99.9 70.41ms   max 130.81ms
   verified     every reply matched  ✓
 ```
 
@@ -34,16 +34,16 @@ The exit code is `0` if every reply matched, `1` on any mismatch or error reply,
 
 ## Results
 
-Redis 7 vs ferrodb on the same machine. 50 clients, 64-byte values, 50/50 GET/SET, 5-second runs, `-seed 7`.
+Redis vs ferrodb on my laptop: 4 cores, Ubuntu on WSL2, benchmark and server running on the same machine. 50 clients, 64-byte values, 50/50 GET/SET, 5-second runs, `-seed 7`.
 
 | Server | Pipeline | Throughput | p50 | p99 | Verified |
 |---|---|---|---|---|---|
-| Redis | 1 | 140,665 ops/sec | 247µs | 3.85ms | ✓ |
-| ferrodb | 1 | 185,746 ops/sec | 8µs | 7.50ms | ✓ |
-| Redis | 16 | 519,003 ops/sec | 1.41ms | 3.74ms | ✓ |
-| ferrodb | 16 | 919,544 ops/sec | 31µs | 8.98ms | ✓ |
+| Redis | 1 | 33,556 ops/sec | 1.21ms | 5.85ms | ✓ |
+| ferrodb | 1 | 47,660 ops/sec | 215µs | 10.84ms | ✓ |
+| Redis | 16 | 176,352 ops/sec | 4.26ms | 12.72ms | ✓ |
+| ferrodb | 16 | 253,728 ops/sec | 1.11ms | 30.52ms | ✓ |
 
-**Read these numbers carefully.** They come from a 2-core cloud VM, with the benchmark and the server sharing those 2 cores, so absolute numbers are low and noisy. The shape is the interesting part: ferrodb's 64 lock-sharded partitions and thread-per-client design give it higher throughput and a much lower median here, but a worse tail. With 50 OS threads on 2 cores, some requests wait for a CPU time slice. Redis runs commands on one thread, so its latency is more even. That trade-off is exactly what I expected from the two designs.
+**How to read this.** Absolute numbers are modest because the benchmark and the server share 4 cores inside WSL2's virtualization layer. The comparison is the interesting part. ferrodb delivered about 1.4× Redis's throughput in both modes, with a much lower median, because its 64 lock-sharded partitions let clients work in parallel. Its tail latency is worse, though: p99 is roughly 2× Redis's. With 50 OS threads competing for 4 cores, some requests wait for a CPU time slice, while Redis runs commands on a single thread and keeps latency more even. That throughput-versus-tail trade-off is what I expected from the two designs.
 
 ## Usage
 
@@ -93,7 +93,7 @@ CI runs `gofmt`, `go vet`, and the tests under the race detector, then benchmark
 
 ## Notes
 
-Built with AI assistance (Claude) for scaffolding and review. I directed the design, read and tested all of it, and ran the benchmarks above myself.
+Built with AI assistance (Claude). I've reviewed the code, can explain how every part works, and ran the benchmarks above on my own machine.
 
 ## License
 
