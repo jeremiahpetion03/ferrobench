@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Check formatting
+        run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
+      - name: Vet
+        run: go vet ./...
+      - name: Test (race detector on)
+        run: go test -race -count=1 ./...
+      - name: Build
+        run: go build -o ferrobench .
+
+      - name: Benchmark real Redis and verify every reply
+        run: ./ferrobench -addr 127.0.0.1:6379 -clients 20 -pipeline 8 -duration 3s
